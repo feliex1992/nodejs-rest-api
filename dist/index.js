@@ -25,7 +25,7 @@ eval("const users = __webpack_require__(/*! ./users.js */ \"./database/mock/user
   \********************************/
 /***/ ((module) => {
 
-eval("module.exports = [\n  {\n    id: 1, \n    user_id: \"jafar\", \n    name: \"jafar pahrudin\", \n    level: \"OWN\"\n  },\n  {\n    id: 2, \n    user_id: \"eri\", \n    name: \"eri samsudin\", \n    level: \"admin\"\n  },\n  {\n    id: 3, \n    user_id: \"pangsonr\", \n    name: \"septiana pangsor\", \n    level: \"admin\"\n  },\n  {\n    id: 4, \n    user_id: \"octa\", \n    name: \"octavian\", \n    level: \"admin\"\n  }\n]\n\n//# sourceURL=webpack://nodejs-rest-api/./database/mock/users.js?");
+eval("module.exports = [\n  \n]\n\n//# sourceURL=webpack://nodejs-rest-api/./database/mock/users.js?");
 
 /***/ }),
 
@@ -35,7 +35,17 @@ eval("module.exports = [\n  {\n    id: 1, \n    user_id: \"jafar\", \n    name: 
   \********************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-eval("const express = __webpack_require__(/*! express */ \"express\");\nconst Logger = __webpack_require__(/*! ./services/Logger.js */ \"./src/services/Logger.js\");\nconst URIGenerator = __webpack_require__(/*! ./routes/UriGenerator.js */ \"./src/routes/UriGenerator.js\");\n\nclass App {\n  constructor(router, repository, varEnv) {\n    this.app = express();\n    this.expressRouter = express.Router();\n    this.router = router;\n    this.repository = repository;\n    this.varEnv = varEnv.getVariable();\n    this.logger = new Logger();\n\n    this._registerRoute = this._registerRoute.bind(this);    \n    this._createRouteBoundAction = this._createRouteBoundAction.bind(this);\n  }\n\n  _registerRoute(uri, httpMethod, boundAction) {\n    this.expressRouter.route(uri)[httpMethod](boundAction);\n  }\n\n  _createRouteBoundAction(controllerClass, method) {\n    const result = [\n      (req, res) => {\n        this._buildControllerInstance(controllerClass, req, res)[method]();\n      }];\n\n    return result;\n  }\n\n  _buildControllerInstance(ControllerClass, req, res) {\n    return new ControllerClass(\n        {\n          params: req.params,\n          query: req.query,\n          headers: req.headers,\n          body: req.body,\n          repository: this.repository,\n          uriGenerator: new URIGenerator(),\n          send: (statusCode, resource, location) => {\n            if (location) {\n              res.location(location);\n            }\n            res.status(statusCode).send(resource);\n          }\n        }\n    );\n  }\n\n  start() {\n    this.app.use(express.json({ limit: '30mb' }));\n    this.app.use(express.urlencoded({ limit: '30mb', extended: true }))\n    this.app.use(function(req, res, next) {\n      res.header(\"Access-Control-Allow-Origin\", \"*\");\n      res.header(\"Access-Control-Allow-Headers\", \"Origin, X-Requested-With, Content-Type, Accept, x-auth-token\");\n      next();\n    });\n\n    this.repository.registerRepositories();\n    this.router.registerRoutes(this._registerRoute, this._createRouteBoundAction);\n    this.app.use(\"/api/v1\", this.expressRouter);\n    this.app.use((req, res) => {\n      res.status(404).send({ url: `${req.originalUrl} not found`});\n    });\n\n    const { port } = this.varEnv;\n    this.app.listen(port, () => this.logger.info(`Listening on port ${port}`));\n  }\n}\n\nmodule.exports = App;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/App.js?");
+eval("const express = __webpack_require__(/*! express */ \"express\");\nconst Logger = __webpack_require__(/*! ./services/Logger.js */ \"./src/services/Logger.js\");\nconst URIGenerator = __webpack_require__(/*! ./routes/UriGenerator.js */ \"./src/routes/UriGenerator.js\");\n\nclass App {\n  constructor(router, repository, varEnv, security) {\n    this.app = express();\n    this.expressRouter = express.Router();\n    this.router = router;\n    this.repository = repository;\n    this.varEnv = varEnv.getVariable();\n    this.security = security;\n    this.logger = new Logger();\n\n    this._registerRoute = this._registerRoute.bind(this);    \n    this._createRouteBoundAction = this._createRouteBoundAction.bind(this);\n  }\n\n  _registerRoute(uri, httpMethod, boundAction) {\n    this.expressRouter.route(uri)[httpMethod](boundAction);\n  }\n\n  _createRouteBoundAction(controllerClass, method, isSecure) {\n    const result = [\n      (req, res) => {\n        this._buildControllerInstance(controllerClass, req, res)[method]();\n      }];\n    \n    if (isSecure) {\n      result.unshift(\n        this.security.authenticate()\n      );\n    }\n\n    return result;\n  }\n\n  _buildControllerInstance(ControllerClass, req, res) {\n    return new ControllerClass(\n        {\n          params: req.params,\n          query: req.query,\n          headers: req.headers,\n          body: req.body,\n          repository: this.repository,\n          uriGenerator: new URIGenerator(),\n          send: (statusCode, resource, location) => {\n            if (location) {\n              res.location(location);\n            }\n            res.status(statusCode).send(resource);\n          }\n        }\n    );\n  }\n\n  start() {\n    this.app.use(express.json({ limit: '30mb' }));\n    this.app.use(express.urlencoded({ limit: '30mb', extended: true }))\n    this.app.use(function(req, res, next) {\n      res.header(\"Access-Control-Allow-Origin\", \"*\");\n      res.header(\"Access-Control-Allow-Headers\", \"Origin, X-Requested-With, Content-Type, Accept, x-auth-token\");\n      next();\n    });\n\n    this.repository.registerRepositories();\n    this.router.registerRoutes(this._registerRoute, this._createRouteBoundAction);\n    this.app.use(\"/api/v1\", this.expressRouter);\n    this.app.use((req, res) => {\n      res.status(404).send({ url: `${req.originalUrl} not found`});\n    });\n\n    const { port } = this.varEnv;\n    this.app.listen(port, () => this.logger.info(`Listening on port ${port}`));\n  }\n}\n\nmodule.exports = App;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/App.js?");
+
+/***/ }),
+
+/***/ "./src/config/DBConfig.js":
+/*!********************************!*\
+  !*** ./src/config/DBConfig.js ***!
+  \********************************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+eval("const typeorm = __webpack_require__(/*! typeorm */ \"typeorm\");\n\nclass DataBase {\n  constructor(varEnv) {    \n    const { typeDb, hostDb, portDb, userDb, passDb, dbName } = varEnv.getVariable();\n\n    this.type = typeDb;\n    this.host = hostDb;\n    this.port = portDb;\n    this.username = userDb;\n    this.password = passDb;\n    this.database = dbName;\n  }\n\n  connect() {\n    typeorm.createConnection({\n      // type: \"mongodb\",\n      // url: \"mongodb+srv://NagatechJP:B3r4sput1h@cluster0.zlko9.mongodb.net/db_grosir_ayu?retryWrites=true&w=majority\",\n      // useUnifiedTopology: true,\n      type: \"postgres\",\n      url: \"postgresql://kresno:kresno@localhost:5432/db_nagagold_kresno\",\n      synchronize: true,\n      entities: [\n        __webpack_require__(/*! ../entities/UserEntity.js */ \"./src/entities/UserEntity.js\")\n      ]\n    })\n      .then((connection) => {\n        this.connection = connection;\n        console.log(\"Success to connect database\");\n      })\n      .catch((err) => {\n        console.log(err);\n      })\n  }\n\n  async getRepository(repoName) {\n    return typeorm.getConnection().getRepository(repoName);\n  }\n\n  getMongoManager() {\n    return typeorm.getMongoManager();\n  }\n}\n\nmodule.exports = DataBase;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/config/DBConfig.js?");
 
 /***/ }),
 
@@ -45,7 +55,7 @@ eval("const express = __webpack_require__(/*! express */ \"express\");\nconst Lo
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-eval("const dotEnv = __webpack_require__(/*! dotenv */ \"dotenv\");\n\nclass VarEnv {\n  constructor() {\n    dotEnv.config();\n\n    this.port = process.env.PORT_KRN;\n    if (!this.port) throw new Error(`FATAL ERROR: PORT Server is not defined.`);\n  }\n\n  getVariable() {\n    return {\n      port: this.port\n    }\n  }\n}\n\nmodule.exports = VarEnv;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/config/VarEnv.js?");
+eval("const dotEnv = __webpack_require__(/*! dotenv */ \"dotenv\");\n\nclass VarEnv {\n  constructor() {\n    dotEnv.config();\n\n    this.port = process.env.PORT_KRN;\n    if (!this.port) throw new Error(`FATAL ERROR: PORT Server is not defined.`);\n\n    this.typeDb = process.env.typedb_KRN;\n    if (!this.typeDb) throw new Error(`FATAL ERROR: Type Database is not defined.`);\n\n    this.hostDb = process.env.hostdb_KRN;\n    if (!this.hostDb) throw new Error(`FATAL ERROR: Host Database is not defined.`);\n\n    this.portDb = Number(process.env.portdb_KRN);\n    if (!this.portDb || isNaN(this.portDb)) throw new Error(`FATAL ERROR: Port Database is not defined.`);\n\n    this.userDb = process.env.userdb_KRN;\n    if (!this.userDb) throw new Error(`FATAL ERROR: User Database is not defined.`);\n\n    this.passDb = process.env.passdb_KRN;\n    if (!this.passDb) throw new Error(`FATAL ERROR: Password Database is not defined.`);\n\n    this.dbName = process.env.dbname_KRN;\n    if (!this.dbName) throw new Error(`FATAL ERROR: Database Name is not defined.`);\n\n  }\n\n  getVariable() {\n    return {\n      port: this.port,\n      typeDb: this.typeDb,\n      hostDb: this.hostDb,\n      portDb: this.portDb,\n      userDb: this.userDb,\n      passDb: this.passDb,\n      dbName: this.dbName\n    }\n  }\n}\n\nmodule.exports = VarEnv;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/config/VarEnv.js?");
 
 /***/ }),
 
@@ -65,7 +75,17 @@ eval("class ControllerBase {\n  constructor({ params, query, headers, body, send
   \***************************************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-eval("const ControllerBase = __webpack_require__(/*! ../ControllerBase.js */ \"./src/controllers/ControllerBase.js\");\nconst UserModel = __webpack_require__(/*! ../../models/masters/UserModel.js */ \"./src/models/masters/UserModel.js\");\n\nclass UserController extends ControllerBase {\n  async getUsers() {\n    try {\n      const users = this.repository.users.getAll();\n      const resource = await Promise.all(users.map(async (user) => {\n        const model = new UserModel(user);\n        const resource = await model.getResource(this.uriGenerator);\n        return resource;\n      }));\n\n      this.success(resource);\n    } catch(err) {\n      console.log(err);\n      this.error(err);\n    }\n  }\n\n  async getUser() {\n    const { id } = this.params;\n\n    try {\n      const user = this.repository.users.getById(id);\n      const userModel = new UserModel(user);\n      const resource = await userModel.getResource(this.uriGenerator);\n      this.success(resource);\n    } catch(err) {\n      this.error(err);\n    }\n  }\n\n  \n}\n\nmodule.exports = UserController;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/controllers/masters/UserController.js?");
+eval("const ControllerBase = __webpack_require__(/*! ../ControllerBase.js */ \"./src/controllers/ControllerBase.js\");\nconst UserModel = __webpack_require__(/*! ../../models/masters/UserModel.js */ \"./src/models/masters/UserModel.js\");\n\nclass UserController extends ControllerBase {\n\n  async addUser() {\n    try {\n      const result = await this.repository.users.addUser(this.body);\n      console.log(result);\n      this.success(result);\n    } catch(err) {\n      this.error(err);\n    }\n  }\n\n  async getUsers() { \n    try {\n      const users = this.repository.users.getAll();\n      const resource = await Promise.all(users.map(async (user) => {\n        const model = new UserModel(user);\n        const resource = await model.getResource(this.uriGenerator);\n        return resource;\n      }));\n\n      this.success(resource);\n    } catch(err) {\n      this.error(err);\n    }\n  }\n\n  async getUser() {\n    const { id } = this.params;\n\n    try {\n      const user = this.repository.users.getById(id);\n      const userModel = new UserModel(user);\n      const resource = await userModel.getResource(this.uriGenerator);\n      this.success(resource);\n    } catch(err) {\n      this.error(err);\n    }\n  }\n\n}\n\nmodule.exports = UserController;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/controllers/masters/UserController.js?");
+
+/***/ }),
+
+/***/ "./src/entities/UserEntity.js":
+/*!************************************!*\
+  !*** ./src/entities/UserEntity.js ***!
+  \************************************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+eval("const { EntitySchema, ObjectID } = __webpack_require__(/*! typeorm */ \"typeorm\");\n\nmodule.exports = new EntitySchema ({\n  name: \"tm_user\",\n  tableName: \"tm_users\",\n  columns: {\n    user_id: {\n      primary: true,\n      type: \"varchar\"\n    },\n    user_name: {\n      type: \"varchar\"\n    },\n    level: {\n      type: \"varchar\"\n    },\n    password: {\n      type: \"varchar\"\n    }\n  }\n});\n\n//# sourceURL=webpack://nodejs-rest-api/./src/entities/UserEntity.js?");
 
 /***/ }),
 
@@ -85,7 +105,7 @@ eval("const halson = __webpack_require__(/*! halson */ \"halson\");\n\nclass Mod
   \*****************************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-eval("const Model = __webpack_require__(/*! ../Model.js */ \"./src/models/Model.js\");\n\nclass UserModel extends Model {\n  constructor(data) {\n    super();\n    this.id = data.id || \"-\";\n    this.user_id = data.user_id || \"-\";\n    this.name = data.name || \"-\";\n    this.level = data.level || \"-\";\n    this.kode_toko = data.kode_toko || \"-\"\n  }\n\n  async getResource(uriGenerator) {\n    const resource = super.getResource({\n      id: this.id,\n      user_id: this.user_id,\n      name: this.name,\n      level: this.level,\n      kode_toko: this.kode_toko\n    });\n\n    // await this.addLinks(resource, uriGenerator);\n    return resource;\n  }\n\n  async addLinks(resource, uriGenerator) {\n    const getUsers = await uriGenerator.getURI(\n      \"UserController_getUsers\"\n    );\n    if (getUsers) resource.addLink(getUsers, getUsers);\n  }\n}\n\nmodule.exports = UserModel;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/models/masters/UserModel.js?");
+eval("const Model = __webpack_require__(/*! ../Model.js */ \"./src/models/Model.js\");\nclass UserModel extends Model {\n  constructor(data) {\n    super();\n    this.\n    this.user_id = data.user_id || \"-\";\n    this.user_name = data.user_name || \"-\";\n    this.level = data.level || \"-\";\n    this.password = data.password;\n  }\n\n  async getResource(uriGenerator) {\n    const resource = super.getResource({\n      user_id: this.user_id,\n      user_name: this.user_name,\n      level: this.level\n    });\n\n    return resource;\n  }\n}\n\nmodule.exports = UserModel;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/models/masters/UserModel.js?");
 
 /***/ }),
 
@@ -115,7 +135,7 @@ eval("class RepositoryBase {\n  getById() {\n    throw new Error('Not Implemente
   \****************************************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-eval("const RepositoryBase = __webpack_require__(/*! ../RepositoryBase.js */ \"./src/repositories/RepositoryBase.js\");\n\nclass UserRepository extends RepositoryBase {\n  constructor(db) {\n    super();\n    this.userCollection = db.users;\n  }\n\n  getAll() {\n    return this.userCollection;\n  }\n\n  getById(id) {\n    return this.userCollection.find(user => user.id == id);\n  }\n\n  removeById(id) {\n    this.userCollection = this.userCollection.filter(user => user.id != id);\n  }\n\n  renameUser(id, newName) {\n    const user = this.getById(id);\n    if (user) user.name = newName;\n  }\n}\n\nmodule.exports = UserRepository;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/repositories/masters/UserRepository.js?");
+eval("const RepositoryBase = __webpack_require__(/*! ../RepositoryBase.js */ \"./src/repositories/RepositoryBase.js\");\n\nclass UserRepository extends RepositoryBase {\n  constructor(db) {\n    super();\n    this.userCollection = db;\n    this.db = db;\n  }\n\n  addUser(dataUser) {\n    return new Promise(async (resolve, reject) => {\n      try {\n        const { user_id, user_name, level, password } = dataUser;\n        const userRepository = await this.db.getRepository(\"tm_user\");\n        \n        userRepository.save({ user_id, user_name, level, password })\n          .then((savedUser) => {\n            return reject (\"Simpan data user berhasil.\", savedUser);\n          })\n          .catch((err) => {\n            return reject(err);\n          });\n      } catch(err) {\n        return reject(err);\n      }\n    });\n  }\n\n  getUsers() {\n    return new Promise(async(resolve, reject) => {\n      try {\n\n      } catch(err) {\n        return reject(err);\n      }\n    });\n  }\n}\n\nmodule.exports = UserRepository;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/repositories/masters/UserRepository.js?");
 
 /***/ }),
 
@@ -125,7 +145,7 @@ eval("const RepositoryBase = __webpack_require__(/*! ../RepositoryBase.js */ \".
   \******************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-eval("const RoutesCollection = __webpack_require__(/*! ./RoutesCollection.js */ \"./src/routes/RoutesCollection.js\");\nconst UserListRoutes = __webpack_require__(/*! ./masters/UserListRoutes.js */ \"./src/routes/masters/UserListRoutes.js\");\n\nclass Routes {\n  constructor() {\n    this.routeBuilders = [\n      new UserListRoutes()\n    ];\n  }\n\n  registerRoutes(registerRouteCallback, createRouteBoundAction) {\n    this.routeBuilders.map((builder) => {\n      const routes = builder.getRoutes();\n      routes.map((routeData) => {\n        RoutesCollection.addRouteData(routeData.controllerClass, routeData.action, {\n          uri: routeData.uri, httpMethod: routeData.httpMethod\n        });\n        const boundAction = createRouteBoundAction(routeData.controllerClass, routeData.action);\n        registerRouteCallback(routeData.uri, routeData.httpMethod, boundAction);\n      })\n    })\n  }\n}\n\nmodule.exports = Routes;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/routes/Routes.js?");
+eval("const RoutesCollection = __webpack_require__(/*! ./RoutesCollection.js */ \"./src/routes/RoutesCollection.js\");\nconst UserListRoutes = __webpack_require__(/*! ./masters/UserListRoutes.js */ \"./src/routes/masters/UserListRoutes.js\");\n\nclass Routes {\n  constructor() {\n    this.routeBuilders = [\n      new UserListRoutes()\n    ];\n  }\n\n  registerRoutes(registerRouteCallback, createRouteBoundAction) {\n    this.routeBuilders.map((builder) => {\n      const routes = builder.getRoutes();\n      routes.map((routeData) => {\n        RoutesCollection.addRouteData(routeData.controllerClass, routeData.action, {\n          uri: routeData.uri, httpMethod: routeData.httpMethod\n        });\n        const boundAction = createRouteBoundAction(routeData.controllerClass, routeData.action, routeData.isSecure);\n        registerRouteCallback(routeData.uri, routeData.httpMethod, boundAction);\n      })\n    })\n  }\n}\n\nmodule.exports = Routes;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/routes/Routes.js?");
 
 /***/ }),
 
@@ -135,7 +155,7 @@ eval("const RoutesCollection = __webpack_require__(/*! ./RoutesCollection.js */ 
   \*****************************************/
 /***/ ((module) => {
 
-eval("class RoutesBuilderBase {\n  constructor(controllerClass) {\n    this.routes = [];\n    this.ControllerClass = controllerClass;\n  }\n\n  buildRoute(uri, httpMethod, action) {\n    this.routes.push({\n      controllerClass: this.ControllerClass,\n      uri,\n      httpMethod,\n      action\n    });\n  }\n}\n\nmodule.exports = RoutesBuilderBase;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/routes/RoutesBuilderBase.js?");
+eval("class RoutesBuilderBase {\n  constructor(controllerClass) {\n    this.routes = [];\n    this.ControllerClass = controllerClass;\n  }\n\n  buildRoute(uri, httpMethod, action, isSecure = false) {\n    this.routes.push({\n      controllerClass: this.ControllerClass,\n      uri,\n      httpMethod,\n      action,\n      isSecure\n    });\n  }\n}\n\nmodule.exports = RoutesBuilderBase;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/routes/RoutesBuilderBase.js?");
 
 /***/ }),
 
@@ -165,7 +185,17 @@ eval("const queryString = __webpack_require__(/*! query-string */ \"query-string
   \**********************************************/
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-eval("const RoutesBuilderBase = __webpack_require__(/*! ../RoutesBuilderBase.js */ \"./src/routes/RoutesBuilderBase.js\");\nconst UserController = __webpack_require__(/*! ../../controllers/masters/UserController.js */ \"./src/controllers/masters/UserController.js\");\n\nclass UserListRoutes extends RoutesBuilderBase {\n  constructor() {\n    super(UserController);\n  }\n\n  getRoutes() {\n    this.buildRoute(\"/users\", \"get\", \"getUsers\");\n    this.buildRoute(\"/users/:id\", \"get\", \"getUser\");\n    return this.routes;\n  }\n}\n\nmodule.exports = UserListRoutes;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/routes/masters/UserListRoutes.js?");
+eval("const RoutesBuilderBase = __webpack_require__(/*! ../RoutesBuilderBase.js */ \"./src/routes/RoutesBuilderBase.js\");\nconst UserController = __webpack_require__(/*! ../../controllers/masters/UserController.js */ \"./src/controllers/masters/UserController.js\");\n\nclass UserListRoutes extends RoutesBuilderBase {\n  constructor() {\n    super(UserController);\n  }\n\n  getRoutes() {\n    this.buildRoute(\"/users\", \"post\", \"addUser\");\n    this.buildRoute(\"/users\", \"get\", \"getUsers\", true);\n    this.buildRoute(\"/users/:id\", \"get\", \"getUser\");\n\n    return this.routes;\n  }\n}\n\nmodule.exports = UserListRoutes;\n\n//# sourceURL=webpack://nodejs-rest-api/./src/routes/masters/UserListRoutes.js?");
+
+/***/ }),
+
+/***/ "./src/security/Security.js":
+/*!**********************************!*\
+  !*** ./src/security/Security.js ***!
+  \**********************************/
+/***/ ((module) => {
+
+eval("class Security {\n  authenticate() {\n    return [\n      (req, res, next) => {\n        if (req.headers[\"x-auth-token\"] !== \"test\") {\n          return res.status(400).send(\"Un Authorization!!!\");\n        }\n\n        next();\n      }\n    ]\n  }\n}\n\nmodule.exports = Security;\n\n\n//# sourceURL=webpack://nodejs-rest-api/./src/security/Security.js?");
 
 /***/ }),
 
@@ -223,6 +253,17 @@ eval("module.exports = require(\"query-string\");;\n\n//# sourceURL=webpack://no
 
 /***/ }),
 
+/***/ "typeorm":
+/*!**************************!*\
+  !*** external "typeorm" ***!
+  \**************************/
+/***/ ((module) => {
+
+"use strict";
+eval("module.exports = require(\"typeorm\");;\n\n//# sourceURL=webpack://nodejs-rest-api/external_%22typeorm%22?");
+
+/***/ }),
+
 /***/ "winston":
 /*!**************************!*\
   !*** external "winston" ***!
@@ -264,7 +305,7 @@ eval("module.exports = require(\"winston\");;\n\n//# sourceURL=webpack://nodejs-
 /*!**********************!*\
   !*** ./src/index.js ***!
   \**********************/
-eval("const App = __webpack_require__(/*! ./App.js */ \"./src/App.js\");\nconst VarEnv = __webpack_require__(/*! ./config/VarEnv.js */ \"./src/config/VarEnv.js\");\nconst Router = __webpack_require__(/*! ./routes/Routes.js */ \"./src/routes/Routes.js\");\nconst db = __webpack_require__(/*! ../database/mock/db.js */ \"./database/mock/db.js\");\nconst Repository = __webpack_require__(/*! ./repositories/Repository.js */ \"./src/repositories/Repository.js\");\n\nclass Server {\n  constructor() {\n    this.app = new App(new Router, new Repository(db), new VarEnv);\n  }\n\n  start() {\n    this.app.start();\n  }\n}\n\nconst server = new Server();\nserver.start();\n\n//# sourceURL=webpack://nodejs-rest-api/./src/index.js?");
+eval("const App = __webpack_require__(/*! ./App.js */ \"./src/App.js\");\nconst VarEnv = __webpack_require__(/*! ./config/VarEnv.js */ \"./src/config/VarEnv.js\");\nconst Router = __webpack_require__(/*! ./routes/Routes.js */ \"./src/routes/Routes.js\");\nconst db = __webpack_require__(/*! ../database/mock/db.js */ \"./database/mock/db.js\");\nconst Repository = __webpack_require__(/*! ./repositories/Repository.js */ \"./src/repositories/Repository.js\");\nconst Security = __webpack_require__(/*! ./security/Security.js */ \"./src/security/Security.js\");\nconst DataBase = __webpack_require__(/*! ./config/DBConfig.js */ \"./src/config/DBConfig.js\");\n\nclass Server {\n  constructor() {\n    const dataBase = new DataBase(new VarEnv);\n    dataBase.connect();\n\n    this.security = new Security();\n    this.app = new App(new Router, new Repository(dataBase), new VarEnv, this.security);\n  }\n\n  start() {\n    this.app.start();\n  }\n}\n\nconst server = new Server();\nserver.start();\n\n//# sourceURL=webpack://nodejs-rest-api/./src/index.js?");
 })();
 
 /******/ })()

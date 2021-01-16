@@ -2,7 +2,18 @@ const ControllerBase = require("../ControllerBase.js");
 const UserModel = require("../../models/masters/UserModel.js");
 
 class UserController extends ControllerBase {
-  async getUsers() {
+
+  async addUser() {
+    try {
+      const result = await this.repository.users.addUser(this.body);
+      console.log(result);
+      this.success(result);
+    } catch(err) {
+      this.error(err);
+    }
+  }
+
+  async getUsers() { 
     try {
       const users = this.repository.users.getAll();
       const resource = await Promise.all(users.map(async (user) => {
@@ -13,7 +24,6 @@ class UserController extends ControllerBase {
 
       this.success(resource);
     } catch(err) {
-      console.log(err);
       this.error(err);
     }
   }
@@ -31,7 +41,6 @@ class UserController extends ControllerBase {
     }
   }
 
-  
 }
 
 module.exports = UserController;

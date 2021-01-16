@@ -1,33 +1,22 @@
 const Model = require("../Model.js");
-
 class UserModel extends Model {
   constructor(data) {
     super();
-    this.id = data.id || "-";
+    this.
     this.user_id = data.user_id || "-";
-    this.name = data.name || "-";
+    this.user_name = data.user_name || "-";
     this.level = data.level || "-";
-    this.kode_toko = data.kode_toko || "-"
+    this.password = data.password;
   }
 
   async getResource(uriGenerator) {
     const resource = super.getResource({
-      id: this.id,
       user_id: this.user_id,
-      name: this.name,
-      level: this.level,
-      kode_toko: this.kode_toko
+      user_name: this.user_name,
+      level: this.level
     });
 
-    // await this.addLinks(resource, uriGenerator);
     return resource;
-  }
-
-  async addLinks(resource, uriGenerator) {
-    const getUsers = await uriGenerator.getURI(
-      "UserController_getUsers"
-    );
-    if (getUsers) resource.addLink(getUsers, getUsers);
   }
 }
 

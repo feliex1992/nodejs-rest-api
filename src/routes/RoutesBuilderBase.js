@@ -4,12 +4,13 @@ class RoutesBuilderBase {
     this.ControllerClass = controllerClass;
   }
 
-  buildRoute(uri, httpMethod, action) {
+  buildRoute(uri, httpMethod, action, isSecure = false) {
     this.routes.push({
       controllerClass: this.ControllerClass,
       uri,
       httpMethod,
-      action
+      action,
+      isSecure
     });
   }
 }

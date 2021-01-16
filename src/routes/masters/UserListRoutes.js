@@ -7,8 +7,10 @@ class UserListRoutes extends RoutesBuilderBase {
   }
 
   getRoutes() {
-    this.buildRoute("/users", "get", "getUsers");
+    this.buildRoute("/users", "post", "addUser");
+    this.buildRoute("/users", "get", "getUsers", true);
     this.buildRoute("/users/:id", "get", "getUser");
+
     return this.routes;
   }
 }

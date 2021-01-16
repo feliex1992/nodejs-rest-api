@@ -15,7 +15,7 @@ class Routes {
         RoutesCollection.addRouteData(routeData.controllerClass, routeData.action, {
           uri: routeData.uri, httpMethod: routeData.httpMethod
         });
-        const boundAction = createRouteBoundAction(routeData.controllerClass, routeData.action);
+        const boundAction = createRouteBoundAction(routeData.controllerClass, routeData.action, routeData.isSecure);
         registerRouteCallback(routeData.uri, routeData.httpMethod, boundAction);
       })
     })
